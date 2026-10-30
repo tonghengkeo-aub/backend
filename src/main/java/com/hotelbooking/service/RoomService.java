@@ -6,6 +6,9 @@ import com.hotelbooking.entity.Room;
 import com.hotelbooking.entity.RoomStatus;
 import com.hotelbooking.repository.HotelRepository;
 import com.hotelbooking.repository.RoomRepository;
+import com.hotelbooking.repository.BookingRepository;
+import com.hotelbooking.repository.BookingItemRepository;
+import com.hotelbooking.repository.FavoriteRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +20,20 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
     private final HotelRepository hotelRepository;
+    private final BookingRepository bookingRepository;
+    private final BookingItemRepository bookingItemRepository;
+    private final FavoriteRepository favoriteRepository;
 
-    public RoomService(RoomRepository roomRepository, HotelRepository hotelRepository) {
+    public RoomService(RoomRepository roomRepository, 
+                       HotelRepository hotelRepository,
+                       BookingRepository bookingRepository,
+                       BookingItemRepository bookingItemRepository,
+                       FavoriteRepository favoriteRepository) {
         this.roomRepository = roomRepository;
         this.hotelRepository = hotelRepository;
+        this.bookingRepository = bookingRepository;
+        this.bookingItemRepository = bookingItemRepository;
+        this.favoriteRepository = favoriteRepository;
     }
 
     public List<Room> getRoomsByHotel(Long hotelId) {
@@ -60,8 +73,21 @@ public class RoomService {
         room.setRating(request.getRating() != null ? request.getRating() : 4.8);
         room.setStarRating(request.getStarRating() != null ? request.getStarRating() : 5);
         room.setReviewCount(request.getReviewCount() != null ? request.getReviewCount() : 128);
-        room.setFoodType(request.getFoodType() != null && !request.getFoodType().isBlank() ? request.getFoodType() : "Breakfast included");
-        room.setMapUrl(request.getMapUrl() != null && !request.getMapUrl().isBlank() ? request.getMapUrl() : (hotel.getMapUrl() != null ? hotel.getMapUrl() : "https://maps.google.com/?q=Riverside+Blvd+Phnom+Penh"));
+        if (request.getFoodType() != null && !request.getFoodType().isBlank()) {
+            String fType = request.getFoodType().trim();
+            room.setFoodType(fType);
+            boolean hasBfast = !fType.equalsIgnoreCase("Room only") &&
+                               !fType.toLowerCase().contains("room only") &&
+                               !fType.toLowerCase().contains("no breakfast");
+            room.setIncludesBreakfast(request.getIncludesBreakfast() != null ? request.getIncludesBreakfast() : hasBfast);
+        } else if (request.getIncludesBreakfast() != null) {
+            room.setIncludesBreakfast(request.getIncludesBreakfast());
+            room.setFoodType(Boolean.TRUE.equals(request.getIncludesBreakfast()) ? "Breakfast included" : "Room only");
+        } else {
+            room.setFoodType("Room only");
+            room.setIncludesBreakfast(false);
+        }
+        room.setMapUrl(request.getMapUrl() != null && !request.getMapUrl().isBlank() ? request.getMapUrl() : (hotel.getMapUrl() != null ? hotel.getMapUrl() : "https://maps.app.goo.gl/HL3kPor7pDvYhUBT8"));
         room.setDeluxePriceExtra(request.getDeluxePriceExtra() != null ? request.getDeluxePriceExtra() : BigDecimal.valueOf(30.00));
         room.setPremiumPriceExtra(request.getPremiumPriceExtra() != null ? request.getPremiumPriceExtra() : BigDecimal.valueOf(50.00));
         if (request.getStandardInfo() != null) room.setStandardInfo(request.getStandardInfo());
@@ -90,7 +116,6 @@ public class RoomService {
 
         if (request.getFreeCancellation() != null) room.setFreeCancellation(request.getFreeCancellation());
         if (request.getNoPrepayment() != null) room.setNoPrepayment(request.getNoPrepayment());
-        if (request.getIncludesBreakfast() != null) room.setIncludesBreakfast(request.getIncludesBreakfast());
         if (request.getIncludesMassage() != null) room.setIncludesMassage(request.getIncludesMassage());
 
         return roomRepository.save(room);
@@ -155,7 +180,6 @@ public class RoomService {
 
         if (request.getFreeCancellation() != null) room.setFreeCancellation(request.getFreeCancellation());
         if (request.getNoPrepayment() != null) room.setNoPrepayment(request.getNoPrepayment());
-        if (request.getIncludesBreakfast() != null) room.setIncludesBreakfast(request.getIncludesBreakfast());
         if (request.getIncludesMassage() != null) room.setIncludesMassage(request.getIncludesMassage());
         if (request.getMaxGuests() != null) room.setMaxGuests(request.getMaxGuests());
         if (request.getBedType() != null) room.setBedType(request.getBedType());
@@ -172,7 +196,17 @@ public class RoomService {
         }
         if (request.getStarRating() != null) room.setStarRating(request.getStarRating());
         if (request.getReviewCount() != null) room.setReviewCount(request.getReviewCount());
-        if (request.getFoodType() != null) room.setFoodType(request.getFoodType());
+        if (request.getFoodType() != null && !request.getFoodType().isBlank()) {
+            String fType = request.getFoodType().trim();
+            room.setFoodType(fType);
+            boolean hasBfast = !fType.equalsIgnoreCase("Room only") &&
+                               !fType.toLowerCase().contains("room only") &&
+                               !fType.toLowerCase().contains("no breakfast");
+            room.setIncludesBreakfast(request.getIncludesBreakfast() != null ? request.getIncludesBreakfast() : hasBfast);
+        } else if (request.getIncludesBreakfast() != null) {
+            room.setIncludesBreakfast(request.getIncludesBreakfast());
+            room.setFoodType(Boolean.TRUE.equals(request.getIncludesBreakfast()) ? "Breakfast included" : "Room only");
+        }
         if (request.getMapUrl() != null) room.setMapUrl(request.getMapUrl());
 
         return roomRepository.save(room);
@@ -181,6 +215,21 @@ public class RoomService {
     @Transactional
     public void deleteRoom(Long roomId) {
         Room room = getRoomById(roomId);
+        try {
+            favoriteRepository.deleteByRoomId(roomId);
+        } catch (Exception e) {
+            // ignore if no favorites
+        }
+        try {
+            bookingItemRepository.detachRoom(roomId);
+        } catch (Exception e) {
+            // ignore
+        }
+        try {
+            bookingRepository.detachRoom(roomId);
+        } catch (Exception e) {
+            // ignore
+        }
         roomRepository.delete(room);
     }
 

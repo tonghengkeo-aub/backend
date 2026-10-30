@@ -50,6 +50,42 @@ public class UserService {
     }
 
     @Transactional
+    public String uploadAvatar(Long userId, org.springframework.web.multipart.MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Uploaded file cannot be empty");
+        }
+
+        try {
+            java.nio.file.Path uploadPath = java.nio.file.Paths.get("uploads", "avatars");
+            if (!java.nio.file.Files.exists(uploadPath)) {
+                java.nio.file.Files.createDirectories(uploadPath);
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            String extension = "jpg";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1);
+            }
+
+            String filename = "avatar_" + userId + "_" + System.currentTimeMillis() + "." + extension;
+            java.nio.file.Path targetLocation = uploadPath.resolve(filename);
+            java.nio.file.Files.copy(file.getInputStream(), targetLocation, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            String avatarUrl = "/uploads/avatars/" + filename;
+            User user = getProfile(userId);
+            user.setAvatarUrl(avatarUrl);
+            userRepository.save(user);
+
+            ActivityLog log = new ActivityLog(user.getId(), "AVATAR_UPLOADED", "User uploaded a new profile photo: " + filename);
+            activityLogRepository.save(log);
+
+            return avatarUrl;
+        } catch (java.io.IOException ex) {
+            throw new RuntimeException("Could not store file. Please try again!", ex);
+        }
+    }
+
+    @Transactional
     public void changePassword(Long userId, ChangePasswordRequest request) {
         User user = getProfile(userId);
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword()) && !request.getOldPassword().equals(user.getPassword())) {
@@ -57,7 +93,7 @@ public class UserService {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        userRepository.saveAndFlush(user);
 
         ActivityLog log = new ActivityLog(user.getId(), "PASSWORD_CHANGED", "User successfully changed their account password");
         activityLogRepository.save(log);

@@ -35,7 +35,7 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.CUSTOMER;
 
-    @Column(length = 500)
+    @Column(columnDefinition = "LONGTEXT")
     private String avatarUrl;
 
     @Column(nullable = false)

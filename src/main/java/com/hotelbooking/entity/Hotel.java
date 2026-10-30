@@ -51,7 +51,7 @@ public class Hotel {
     private String facilities; // comma-separated or JSON string
 
     @Column(length = 500)
-    private String mapUrl = "https://maps.google.com/?q=Riverside+Blvd+Phnom+Penh";
+    private String mapUrl = "https://maps.app.goo.gl/HL3kPor7pDvYhUBT8";
 
     @Column(length = 255)
     private String tagline = "Luxury 5-Star Boutique & Riverside Retreat";
@@ -130,7 +130,7 @@ public class Hotel {
     public String getFacilities() { return facilities; }
     public void setFacilities(String facilities) { this.facilities = facilities; }
 
-    public String getMapUrl() { return mapUrl != null ? mapUrl : "https://maps.google.com/?q=Riverside+Blvd+Phnom+Penh"; }
+    public String getMapUrl() { return mapUrl != null ? mapUrl : "https://maps.app.goo.gl/HL3kPor7pDvYhUBT8"; }
     public void setMapUrl(String mapUrl) { this.mapUrl = mapUrl; }
 
     public String getTagline() { return tagline != null ? tagline : "Luxury 5-Star Boutique & Riverside Retreat"; }

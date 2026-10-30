@@ -25,6 +25,15 @@ public class Review {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Column(length = 60)
+    private String stayType = "Couple";
+
+    @Column(length = 120)
+    private String location = "Cambodia";
+
+    @Column(length = 120)
+    private String guestName;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Review() {}
@@ -48,6 +57,18 @@ public class Review {
 
     public String getComment() { return comment; }
     public void setComment(String comment) { this.comment = comment; }
+
+    public String getStayType() { return stayType != null ? stayType : "Couple"; }
+    public void setStayType(String stayType) { this.stayType = stayType; }
+
+    public String getLocation() { return location != null ? location : "Cambodia"; }
+    public void setLocation(String location) { this.location = location; }
+
+    public String getGuestName() {
+        if (guestName != null && !guestName.isBlank()) return guestName;
+        return customer != null && customer.getFullName() != null ? customer.getFullName() : "Verified Guest";
+    }
+    public void setGuestName(String guestName) { this.guestName = guestName; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

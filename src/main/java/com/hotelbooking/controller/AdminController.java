@@ -28,15 +28,23 @@ public class AdminController {
     private final HotelService hotelService;
     private final BookingService bookingService;
     private final com.hotelbooking.service.RoomService roomService;
+    private final com.hotelbooking.repository.ReviewRepository reviewRepository;
 
     public AdminController(AdminService adminService,
                            HotelService hotelService,
                            BookingService bookingService,
-                           com.hotelbooking.service.RoomService roomService) {
+                           com.hotelbooking.service.RoomService roomService,
+                           com.hotelbooking.repository.ReviewRepository reviewRepository) {
         this.adminService = adminService;
         this.hotelService = hotelService;
         this.bookingService = bookingService;
         this.roomService = roomService;
+        this.reviewRepository = reviewRepository;
+    }
+
+    @GetMapping("/reviews")
+    public ResponseEntity<List<com.hotelbooking.entity.Review>> getAdminReviews() {
+        return ResponseEntity.ok(reviewRepository.findAll());
     }
 
     @GetMapping("/stats")

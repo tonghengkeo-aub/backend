@@ -23,7 +23,7 @@ public class Room {
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 50)
     private RoomType type = RoomType.DOUBLE;
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -58,10 +58,10 @@ public class Room {
     private Integer reviewCount = 128;
 
     @Column(length = 120)
-    private String foodType = "Breakfast included";
+    private String foodType = "Room only";
 
     @Column(length = 500)
-    private String mapUrl = "https://maps.google.com/?q=Riverside+Blvd+Phnom+Penh";
+    private String mapUrl = "https://maps.app.goo.gl/HL3kPor7pDvYhUBT8";
 
     @Column(precision = 10, scale = 2)
     private BigDecimal deluxePriceExtra = BigDecimal.valueOf(30.00);

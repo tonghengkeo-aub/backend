@@ -12,10 +12,10 @@ public class HotelSetting {
     private Long id;
 
     @Column(nullable = false, precision = 5, scale = 2)
-    private BigDecimal taxPercent = new BigDecimal("10.00");
+    private BigDecimal taxPercent = new BigDecimal("1.00");
 
     @Column(nullable = false, precision = 5, scale = 2)
-    private BigDecimal serviceChargePercent = new BigDecimal("5.00");
+    private BigDecimal serviceChargePercent = new BigDecimal("1.00");
 
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal depositPercent = new BigDecimal("20.00");
@@ -31,10 +31,10 @@ public class HotelSetting {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public BigDecimal getTaxPercent() { return taxPercent != null ? taxPercent : new BigDecimal("10.00"); }
+    public BigDecimal getTaxPercent() { return taxPercent != null ? taxPercent : new BigDecimal("1.00"); }
     public void setTaxPercent(BigDecimal taxPercent) { this.taxPercent = taxPercent; }
 
-    public BigDecimal getServiceChargePercent() { return serviceChargePercent != null ? serviceChargePercent : new BigDecimal("5.00"); }
+    public BigDecimal getServiceChargePercent() { return serviceChargePercent != null ? serviceChargePercent : new BigDecimal("1.00"); }
     public void setServiceChargePercent(BigDecimal serviceChargePercent) { this.serviceChargePercent = serviceChargePercent; }
 
     public BigDecimal getDepositPercent() { return depositPercent != null ? depositPercent : new BigDecimal("20.00"); }

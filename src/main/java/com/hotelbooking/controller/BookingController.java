@@ -70,18 +70,27 @@ public class BookingController {
     }
 
     @GetMapping("/my")
-    public ResponseEntity<List<Booking>> getMyBookings(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(bookingService.getMyBookings(userDetails.getId()));
+    public ResponseEntity<List<Booking>> getMyBookings(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) String email) {
+        Long uid = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(bookingService.getMyBookings(uid, email));
     }
 
     @GetMapping("/upcoming")
-    public ResponseEntity<List<Booking>> getUpcomingBookings(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(bookingService.getUpcomingBookings(userDetails.getId()));
+    public ResponseEntity<List<Booking>> getUpcomingBookings(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) String email) {
+        Long uid = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(bookingService.getUpcomingBookings(uid, email));
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<Booking>> getHistoryBookings(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(bookingService.getHistoryBookings(userDetails.getId()));
+    public ResponseEntity<List<Booking>> getHistoryBookings(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) String email) {
+        Long uid = userDetails != null ? userDetails.getId() : null;
+        return ResponseEntity.ok(bookingService.getHistoryBookings(uid, email));
     }
 
     @GetMapping("/check-availability")
@@ -133,5 +142,11 @@ public class BookingController {
             @RequestBody Map<String, String> payload) {
         BookingStatus status = BookingStatus.valueOf(payload.get("status"));
         return ResponseEntity.ok(bookingService.updateBookingStatus(id, status));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteBooking(@PathVariable Long id) {
+        bookingService.deleteBooking(id);
+        return ResponseEntity.ok(Map.of("message", "Booking deleted successfully"));
     }
 }

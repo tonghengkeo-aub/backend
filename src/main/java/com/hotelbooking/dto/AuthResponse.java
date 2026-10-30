@@ -12,6 +12,9 @@ public class AuthResponse {
     private Role role;
     private Long hotelId; // Populated if role is HOTEL_OWNER
     private Boolean isApproved = true;
+    private String avatarUrl;
+    private String gender;
+    private String address;
 
     public AuthResponse() {}
 
@@ -24,6 +27,20 @@ public class AuthResponse {
         this.role = role;
         this.hotelId = hotelId;
         this.isApproved = isApproved != null ? isApproved : true;
+    }
+
+    public AuthResponse(String token, Long id, String fullName, String email, String phone, Role role, Long hotelId, Boolean isApproved, String avatarUrl, String gender, String address) {
+        this.token = token;
+        this.id = id;
+        this.fullName = fullName;
+        this.email = email;
+        this.phone = phone;
+        this.role = role;
+        this.hotelId = hotelId;
+        this.isApproved = isApproved != null ? isApproved : true;
+        this.avatarUrl = avatarUrl;
+        this.gender = gender;
+        this.address = address;
     }
 
     public String getToken() { return token; }
@@ -52,4 +69,13 @@ public class AuthResponse {
 
     public Boolean getIsApproved() { return isApproved; }
     public void setIsApproved(Boolean isApproved) { this.isApproved = isApproved; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
 }

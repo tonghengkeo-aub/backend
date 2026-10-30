@@ -1,9 +1,11 @@
 com\hotelbooking\entity\Room.class
 com\hotelbooking\entity\HotelStatus.class
 com\hotelbooking\entity\Location.class
+com\hotelbooking\service\BakongService.class
 com\hotelbooking\controller\NotificationController.class
 com\hotelbooking\dto\CancelRequest.class
 com\hotelbooking\entity\HotelSetting.class
+com\hotelbooking\controller\ReviewController.class
 com\hotelbooking\repository\BookingItemRepository.class
 com\hotelbooking\entity\Payment.class
 com\hotelbooking\controller\UserController.class
@@ -24,6 +26,7 @@ com\hotelbooking\entity\PaymentStatus.class
 com\hotelbooking\repository\UserRepository.class
 com\hotelbooking\dto\HotelRequest.class
 com\hotelbooking\repository\RoomRepository.class
+com\hotelbooking\dto\ReviewRequest.class
 com\hotelbooking\entity\Favorite.class
 com\hotelbooking\controller\AuthController.class
 com\hotelbooking\security\CustomUserDetailsService.class
@@ -64,6 +67,7 @@ com\hotelbooking\entity\ActivityLog.class
 com\hotelbooking\repository\ProviderRepository.class
 com\hotelbooking\dto\PriceCalculationRequest$ExtraItemDto.class
 com\hotelbooking\entity\Hotel.class
+com\hotelbooking\controller\BakongController.class
 com\hotelbooking\repository\CouponRepository.class
 com\hotelbooking\config\SecurityConfig.class
 com\hotelbooking\repository\ServiceRepository.class
@@ -78,6 +82,7 @@ com\hotelbooking\repository\LocationRepository.class
 com\hotelbooking\dto\PriceCalculationRequest.class
 com\hotelbooking\controller\OwnerController.class
 com\hotelbooking\dto\ChangePasswordRequest.class
+com\hotelbooking\config\WebConfig.class
 com\hotelbooking\controller\ServiceCatalogController.class
 com\hotelbooking\HotelBookingApplication.class
 com\hotelbooking\dto\PaymentRequest.class

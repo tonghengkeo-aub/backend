@@ -28,8 +28,8 @@ public class RoomRequest {
     private Double rating = 4.8;
     private Integer starRating = 5;
     private Integer reviewCount = 128;
-    private String foodType = "Breakfast included";
-    private String mapUrl = "https://maps.google.com/?q=Riverside+Blvd+Phnom+Penh";
+    private String foodType = "Room only";
+    private String mapUrl = "https://maps.app.goo.gl/HL3kPor7pDvYhUBT8";
 
     private BigDecimal deluxePriceExtra = BigDecimal.valueOf(30.00);
     private BigDecimal premiumPriceExtra = BigDecimal.valueOf(50.00);
@@ -105,7 +105,7 @@ public class RoomRequest {
     public Integer getReviewCount() { return reviewCount != null ? reviewCount : 128; }
     public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 
-    public String getFoodType() { return foodType != null ? foodType : "Breakfast included"; }
+    public String getFoodType() { return foodType != null ? foodType : (Boolean.TRUE.equals(includesBreakfast) ? "Breakfast included" : "Room only"); }
     public void setFoodType(String foodType) { this.foodType = foodType; }
 
     public String getMapUrl() { return mapUrl; }

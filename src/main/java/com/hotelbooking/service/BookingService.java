@@ -69,10 +69,24 @@ public class BookingService {
     }
 
     public HotelSetting getHotelSetting() {
-        return hotelSettingRepository.findAll().stream().findFirst().orElseGet(() -> {
+        HotelSetting setting = hotelSettingRepository.findAll().stream().findFirst().orElseGet(() -> {
             HotelSetting s = new HotelSetting();
             return hotelSettingRepository.save(s);
         });
+        // Ensure tax and service charge reflect the updated 1% rule if still on old defaults (10% or 5%)
+        boolean updated = false;
+        if (setting.getTaxPercent() == null || setting.getTaxPercent().compareTo(BigDecimal.valueOf(10.00)) == 0) {
+            setting.setTaxPercent(BigDecimal.valueOf(1.00));
+            updated = true;
+        }
+        if (setting.getServiceChargePercent() == null || setting.getServiceChargePercent().compareTo(BigDecimal.valueOf(5.00)) == 0) {
+            setting.setServiceChargePercent(BigDecimal.valueOf(1.00));
+            updated = true;
+        }
+        if (updated) {
+            hotelSettingRepository.save(setting);
+        }
+        return setting;
     }
 
     public HotelSetting updateHotelSetting(HotelSetting setting) {
@@ -319,10 +333,15 @@ public class BookingService {
 
         PriceCalculationResponse calc = calculatePrice(calcReq);
 
+        boolean isCash = request.getPaymentMethod() == PaymentMethod.CASH;
         boolean payDepositOnly = Boolean.TRUE.equals(request.getPayDepositOnly());
-        BigDecimal amountPaid = payDepositOnly ? calc.getDepositRequired() : calc.getTotal();
-        BigDecimal balanceDue = calc.getTotal().subtract(amountPaid).max(BigDecimal.ZERO);
-        String paymentStatus = payDepositOnly ? "DEPOSIT" : "PAID";
+
+        // For online/KHQR payment, booking starts UNPAID/PENDING until customer actually scans and pays.
+        // For CASH, booking starts UNPAID/CONFIRMED (payable upon arrival at hotel).
+        BigDecimal amountPaid = BigDecimal.ZERO;
+        BigDecimal balanceDue = calc.getTotal();
+        String paymentStatus = "UNPAID";
+        BookingStatus initialStatus = isCash ? BookingStatus.CONFIRMED : BookingStatus.PENDING;
 
         String dateStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String randomSuffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -375,7 +394,7 @@ public class BookingService {
         booking.setGuestPhone(request.getGuestPhone() != null ? request.getGuestPhone() : (customer != null ? customer.getPhone() : ""));
         booking.setGuestEmail(request.getGuestEmail() != null ? request.getGuestEmail() : (customer != null ? customer.getEmail() : null));
         booking.setNotes(request.getNotes() != null ? request.getNotes() : request.getSpecialRequests());
-        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStatus(initialStatus);
 
         Booking savedBooking = bookingRepository.save(booking);
 
@@ -408,31 +427,25 @@ public class BookingService {
             }
         }
 
-        // 3. Save Payment Record (Rule 3)
-        Payment payment = new Payment();
-        payment.setBooking(savedBooking);
-        payment.setTransactionRef("TXN-" + System.currentTimeMillis() + "-" + randomSuffix);
-        payment.setMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : PaymentMethod.KHQR);
-        payment.setPaymentType(payDepositOnly ? PaymentType.DEPOSIT : PaymentType.PAYMENT);
-        payment.setAmountUsd(amountPaid);
-        payment.setAmountKhr(amountPaid.multiply(BigDecimal.valueOf(4100)));
-        payment.setStatus(PaymentStatus.SUCCESS);
-        payment.setPaidAt(LocalDateTime.now());
-        paymentRepository.save(payment);
-        savedBooking.getPayments().add(payment);
+        // Note: For online/KHQR, payment record is NOT created here. It is recorded only when payment is actually received!
 
         // Create Real In-App Notification
         Notification notification = new Notification();
         notification.setUser(customer);
-        notification.setTitle("Booking Confirmed #" + bookingCode);
-        notification.setMessage("Your hotel booking #" + bookingCode + " is confirmed! Total: US$" + calc.getTotal()
-                + (payDepositOnly ? " (Deposit Paid: US$" + amountPaid + ", Balance Due: US$" + balanceDue + ")" : " (Fully Paid)"));
-        notification.setType("BOOKING_CONFIRMED");
+        if (isCash) {
+            notification.setTitle("Booking Reserved #" + bookingCode);
+            notification.setMessage("Your booking #" + bookingCode + " is confirmed. Pay US$" + calc.getTotal() + " in cash upon arrival at the hotel.");
+            notification.setType("BOOKING_CONFIRMED");
+        } else {
+            notification.setTitle("Payment Required #" + bookingCode);
+            notification.setMessage("Booking #" + bookingCode + " initiated. Total: US$" + calc.getTotal() + ". Please scan Bakong KHQR (sen_tongheng@bkrt) to complete payment.");
+            notification.setType("BOOKING_PENDING");
+        }
         notificationRepository.save(notification);
 
         // Activity Log
-        ActivityLog log = new ActivityLog(customer.getId(), "BOOKING_CREATED",
-                "Created booking #" + bookingCode + " for room " + (bookedRoom != null ? bookedRoom.getName() : "Hotel Room"));
+        ActivityLog log = new ActivityLog(customer != null ? customer.getId() : 1L, "BOOKING_CREATED",
+                "Created booking #" + bookingCode + " (" + (isCash ? "Cash at Hotel" : "Awaiting KHQR Payment") + ") for room " + (bookedRoom != null ? bookedRoom.getName() : "Hotel Room"));
         activityLogRepository.save(log);
 
         return savedBooking;
@@ -469,9 +482,25 @@ public class BookingService {
 
         if (newBalance.compareTo(BigDecimal.ZERO) == 0) {
             booking.setPaymentStatus("PAID");
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setCancellationReason(null);
         } else {
             booking.setPaymentStatus("DEPOSIT");
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setCancellationReason(null);
         }
+
+        // Notification for successful payment
+        try {
+            if (booking.getUser() != null) {
+                Notification notif = new Notification();
+                notif.setUser(booking.getUser());
+                notif.setTitle("Payment Received #" + booking.getBookingCode());
+                notif.setMessage("Payment of US$" + amount + " received via Bakong KHQR (sen_tongheng@bkrt). Your booking is now confirmed!");
+                notif.setType("PAYMENT_SUCCESS");
+                notificationRepository.save(notif);
+            }
+        } catch (Exception ignored) {}
 
         return bookingRepository.save(booking);
     }
@@ -632,12 +661,47 @@ public class BookingService {
         return bookingRepository.findByUserIdOrderByBookingDateDescBookingTimeDesc(userId);
     }
 
+    public List<Booking> getMyBookings(Long userId, String email) {
+        if (userId != null) return getMyBookings(userId);
+        if (email != null && !email.isBlank()) {
+            return bookingRepository.findAll().stream()
+                    .filter(b -> b.getUser() != null && email.equalsIgnoreCase(b.getUser().getEmail()))
+                    .sorted((a, b) -> b.getBookingDate().compareTo(a.getBookingDate()))
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+
     public List<Booking> getUpcomingBookings(Long userId) {
         return bookingRepository.findUpcomingBookings(userId, LocalDate.now());
     }
 
+    public List<Booking> getUpcomingBookings(Long userId, String email) {
+        if (userId != null) return getUpcomingBookings(userId);
+        if (email != null && !email.isBlank()) {
+            return bookingRepository.findAll().stream()
+                    .filter(b -> b.getUser() != null && email.equalsIgnoreCase(b.getUser().getEmail()))
+                    .filter(b -> b.getBookingDate() != null && b.getBookingDate().isAfter(LocalDate.now().minusDays(1)))
+                    .sorted((a, b) -> a.getBookingDate().compareTo(b.getBookingDate()))
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+
     public List<Booking> getHistoryBookings(Long userId) {
         return bookingRepository.findHistoryBookings(userId, LocalDate.now());
+    }
+
+    public List<Booking> getHistoryBookings(Long userId, String email) {
+        if (userId != null) return getHistoryBookings(userId);
+        if (email != null && !email.isBlank()) {
+            return bookingRepository.findAll().stream()
+                    .filter(b -> b.getUser() != null && email.equalsIgnoreCase(b.getUser().getEmail()))
+                    .filter(b -> b.getBookingDate() != null && b.getBookingDate().isBefore(LocalDate.now()))
+                    .sorted((a, b) -> b.getBookingDate().compareTo(a.getBookingDate()))
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
     }
 
     public List<Booking> getHotelBookings(Long hotelId) {
@@ -665,6 +729,8 @@ public class BookingService {
                 r.setAvailableUnits(0);
                 roomRepository.save(r);
             } else if (status == BookingStatus.CANCELLED) {
+                int units = booking.getNumberOfRooms() != null && booking.getNumberOfRooms() > 0 ? booking.getNumberOfRooms() : 1;
+                roomRepository.restoreRoomInventory(r.getId(), units);
                 r.setStatus(RoomStatus.AVAILABLE);
                 r.setAvailableUnits(r.getTotalRooms() != null && r.getTotalRooms() > 0 ? r.getTotalRooms() : 1);
                 roomRepository.save(r);
@@ -684,6 +750,8 @@ public class BookingService {
                         r.setAvailableUnits(0);
                         roomRepository.save(r);
                     } else if (status == BookingStatus.CANCELLED) {
+                        int units = item.getQuantity() != null && item.getQuantity() > 0 ? item.getQuantity() : 1;
+                        roomRepository.restoreRoomInventory(r.getId(), units);
                         r.setStatus(RoomStatus.AVAILABLE);
                         r.setAvailableUnits(r.getTotalRooms() != null && r.getTotalRooms() > 0 ? r.getTotalRooms() : 1);
                         roomRepository.save(r);
@@ -692,6 +760,73 @@ public class BookingService {
             }
         }
 
+        // Trigger review invitation notification ONLY when Check-out is completed by Admin
+        User targetUser = booking.getUser();
+        if (targetUser == null && booking.getGuestEmail() != null && !booking.getGuestEmail().isBlank()) {
+            targetUser = userRepository.findByEmail(booking.getGuestEmail().trim()).orElse(null);
+        }
+        if (targetUser != null && status == BookingStatus.COMPLETED) {
+            try {
+                Notification reviewNotif = new Notification();
+                reviewNotif.setUser(targetUser);
+                reviewNotif.setTitle("Check-Out Complete! Rate Your Stay");
+                String rName = booking.getRoom() != null ? booking.getRoom().getName() : (booking.getService() != null ? booking.getService().getName() : "Room");
+                reviewNotif.setMessage("[CHECKOUT_BOOKING:" + booking.getId() + "] Check-out completed by hotel reception. Thank you for staying in " + rName + " (#" + booking.getBookingCode() + "). Tap to rate your experience!");
+                reviewNotif.setType("REVIEW_INVITATION");
+                notificationRepository.save(reviewNotif);
+            } catch (Exception ignored) {}
+        }
+
         return bookingRepository.save(booking);
+    }
+
+    /**
+     * Automatic cleanup: Any unpaid pending checkout older than 10 minutes is automatically cancelled and its room released.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 30000)
+    @Transactional
+    public void cleanupExpiredPendingBookings() {
+        LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
+        List<Booking> expired = bookingRepository.findAll().stream()
+                .filter(b -> b.getStatus() == BookingStatus.PENDING
+                        && "UNPAID".equalsIgnoreCase(b.getPaymentStatus())
+                        && b.getCreatedAt() != null
+                        && b.getCreatedAt().isBefore(tenMinutesAgo))
+                .collect(Collectors.toList());
+
+        for (Booking b : expired) {
+            b.setStatus(BookingStatus.CANCELLED);
+            b.setCancellationReason("Payment session expired (5 minutes timeout)");
+            bookingRepository.save(b);
+
+            if (b.getRoom() != null) {
+                int units = b.getNumberOfRooms() != null && b.getNumberOfRooms() > 0 ? b.getNumberOfRooms() : 1;
+                roomRepository.restoreRoomInventory(b.getRoom().getId(), units);
+                Room r = b.getRoom();
+                r.setStatus(RoomStatus.AVAILABLE);
+                r.setAvailableUnits(r.getTotalRooms() != null && r.getTotalRooms() > 0 ? r.getTotalRooms() : 1);
+                roomRepository.save(r);
+            }
+        }
+    }
+
+    @Transactional
+    public void deleteBooking(Long id) {
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null) return;
+
+        // Restore room inventory if applicable
+        if (booking.getRoom() != null) {
+            int units = booking.getNumberOfRooms() != null && booking.getNumberOfRooms() > 0 ? booking.getNumberOfRooms() : 1;
+            roomRepository.restoreRoomInventory(booking.getRoom().getId(), units);
+            Room r = booking.getRoom();
+            r.setStatus(RoomStatus.AVAILABLE);
+            if (r.getAvailableUnits() == null || r.getAvailableUnits() <= 0) {
+                r.setAvailableUnits(units);
+            }
+            roomRepository.save(r);
+        }
+
+        bookingRepository.delete(booking);
     }
 }

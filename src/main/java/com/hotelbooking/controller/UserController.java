@@ -38,6 +38,14 @@ public class UserController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping(value = "/avatar/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadAvatar(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String avatarUrl = userService.uploadAvatar(userDetails.getId(), file);
+        return ResponseEntity.ok(Map.of("avatarUrl", avatarUrl, "message", "Avatar uploaded successfully"));
+    }
+
     @PutMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,

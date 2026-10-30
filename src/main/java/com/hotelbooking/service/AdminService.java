@@ -49,8 +49,9 @@ public class AdminService {
         stats.setActiveHotels(hotelCount);
         stats.setPendingHotels(0L);
 
-        long roomCount = roomRepository.count();
-        stats.setTotalRooms(roomCount > 0 ? roomCount : providerRepository.count());
+        Hotel defaultHotel = getDefaultHotel();
+        long roomCount = defaultHotel != null ? roomRepository.countByHotelId(defaultHotel.getId()) : roomRepository.count();
+        stats.setTotalRooms(roomCount);
         stats.setTotalBookings(bookingRepository.count());
         long confirmed = bookingRepository.countByStatus(BookingStatus.CONFIRMED);
         long checkedIn = bookingRepository.countByStatus(BookingStatus.CHECKED_IN);

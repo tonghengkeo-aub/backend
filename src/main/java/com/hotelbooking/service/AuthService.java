@@ -48,10 +48,11 @@ public class AuthService {
                 .or(() -> userRepository.findByPhone(request.getEmail()))
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
-        // Match password with BCrypt, or allow fallback for demo seeds
+        // Strictly verify password using BCrypt
         boolean matches = passwordEncoder.matches(request.getPassword(), user.getPassword());
-        if (!matches && ("password123".equals(request.getPassword()) || "123456".equals(request.getPassword()) || request.getPassword().equals(user.getPassword()))) {
-            // Re-hash with bcrypt and save
+        
+        // One-time legacy upgrade only if stored password was in plain text
+        if (!matches && request.getPassword().equals(user.getPassword())) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
             userRepository.save(user);
             matches = true;
@@ -78,7 +79,7 @@ public class AuthService {
 
         String token = jwtService.generateToken(userDetails, claims);
 
-        return new AuthResponse(
+        AuthResponse resp = new AuthResponse(
                 token,
                 user.getId(),
                 user.getFullName(),
@@ -86,8 +87,12 @@ public class AuthService {
                 user.getPhone(),
                 user.getRole(),
                 hotelId,
-                user.getIsApproved()
+                user.getIsApproved(),
+                user.getAvatarUrl(),
+                user.getGender(),
+                user.getAddress()
         );
+        return resp;
     }
 
     @Transactional
@@ -140,7 +145,7 @@ public class AuthService {
 
         String token = jwtService.generateToken(userDetails, claims);
 
-        return new AuthResponse(
+        AuthResponse resp = new AuthResponse(
                 token,
                 savedUser.getId(),
                 savedUser.getFullName(),
@@ -148,7 +153,11 @@ public class AuthService {
                 savedUser.getPhone(),
                 savedUser.getRole(),
                 hotelId,
-                savedUser.getIsApproved()
+                savedUser.getIsApproved(),
+                savedUser.getAvatarUrl(),
+                savedUser.getGender(),
+                savedUser.getAddress()
         );
+        return resp;
     }
 }

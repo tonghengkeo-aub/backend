@@ -45,4 +45,19 @@ public class NotificationService {
             }
         }
     }
+
+    @Transactional
+    public void deleteNotification(Long notificationId, Long userId) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found with ID: " + notificationId));
+        if (notification.getUser() != null && !notification.getUser().getId().equals(userId)) {
+            throw new SecurityException("Unauthorized to delete this notification");
+        }
+        notificationRepository.delete(notification);
+    }
+
+    @Transactional
+    public void clearAllNotifications(Long userId) {
+        notificationRepository.deleteByUserId(userId);
+    }
 }
